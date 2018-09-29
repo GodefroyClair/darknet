@@ -24,12 +24,9 @@ static uint64_t getTickCountMs()
     return (uint64_t)(ts.tv_nsec / 1000000) + ((uint64_t)ts.tv_sec * 1000ull);
 }
 
-
-
 // new implementation without iplImage
 Mat image_to_mat(image im)
 {
-    std::cout << "image_to_mat"<< std::endl;
     //Get initial time in milisecondsint64
     uint64_t work_begin = getTickCountMs();
     image copy = copy_image(im);
@@ -55,6 +52,54 @@ Mat image_to_mat(image im)
     return m;
 }
 
+// new *fast* implementation without iplImage
+image mat_to_image(Mat& m){
+
+  //Get initial time in milisecondsint64
+  uint64_t work_begin = getTickCountMs();
+
+  int channels = m.channels();
+  int nRows = m.rows;
+  int nMatRows = m.rows;
+  int nCols = m.cols;
+  // in OpenCV, the cols are the width * channels
+  int nMatCols = m.cols * channels;
+
+  image im = make_image(nCols, nRows, channels);
+
+  if (m.isContinuous()) {
+    nMatCols *= nRows;
+    nMatRows = 1;
+  }
+
+
+  int i, j;
+  const uchar* p;
+  // i: current row
+  for(i = 0 ; i < nMatRows ; i++){
+    p = m.ptr<uchar>(i);
+    // j: current column
+    for(j = 0 ; j < nMatCols ; j++){
+      /* formulae: j = channels * curCol + curChnl; */
+      if (m.isContinuous()) {
+        /* im.data[j / channels + (j % (channels + nRows)) * nCols + (j % channels) * nCols ] = p[j] / 255.; */
+        int curChnl = j % channels;
+        int curCol = (j / channels) % nCols;
+        int curRow = j / (channels * nCols);
+        im.data[curCol + curRow * nCols + curChnl * (nCols * nRows)] = p[j] / 255.;
+      } else {
+        im.data[j / channels + i * nCols + (j % channels) * nCols * nRows ] = p[j] / 255.;
+      }
+    }
+  }
+
+  rgbgr_image(im);
+  uint64_t work_stop = getTickCountMs();
+  std::cout << "time elapsed in mat_to_image: " << (work_stop - work_begin) << std::endl;
+  return im;
+
+}
+
 // new implementation without iplImage
 image mat_to_image2(Mat m){
   //Get initial time in milisecondsint64
@@ -68,9 +113,6 @@ image mat_to_image2(Mat m){
 
   int i, j, k;
 
-  /* std::cout << "mat_to_image" << std::endl; */
-  if(c != 3)
-    std::cout << "/!\\ number of channels: " << c << std::endl;
   for(i = 0; i < h; ++i){
       for(k= 0; k < c; ++k){
           for(j = 0; j < w; ++j){
@@ -84,49 +126,6 @@ image mat_to_image2(Mat m){
   rgbgr_image(im);
   uint64_t work_stop = getTickCountMs();
   std::cout << "time elapsed in mat_to_image: " << (work_stop - work_begin) << std::endl;
-  return im;
-
-}
-
-// new *fast* implementation without iplImage
-image mat_to_image(Mat& m){
-
-  //Get initial time in milisecondsint64
-  /* uint64_t work_begin = getTickCountMs(); */
-  int channels = m.channels();
-  int nRows = m.rows;
-  int nCols = m.cols * channels;
-  if(channels != 3)
-    std::cout << "/!\\ number of channels: " << channels << std::endl;
-
-  image im = make_image(m.cols, nRows, channels);
-
-  /* if (m.isContinuous()) { */
-  /*   nCols *= nRows; */
-  /*   nRows = 1; */
-  /*   std::cout << "!!! continuous !!!" << std::endl; */
-  /* } else { */
-  /*   std::cout << "!!! not continuous !!!" << std::endl; */
-  /* } */
-
-
-  int i, j, k;
-  const uchar* p;
-  for(i = 0 ; i < nRows ; i++){
-    p = m.ptr<uchar>(i);
-    for(j = 0 ; j < nCols ; j++){
-      /* formulae: j = channels * curCol + curChnl; */
-      int curCol = j / channels;
-      int curRow = i;
-      int curChnl = j % channels;
-      im.data[curCol + curRow * (nCols/channels) + curChnl * (nCols/channels) * nRows ] = p[j] / 255.;
-      /* im.data[k * w * h + i * w + j] = p[j] / 255.; */
-    }
-  }
-
-  rgbgr_image(im);
-  /* uint64_t work_stop = getTickCountMs(); */
-  /* std::cout << "time elapsed in mat_to_image: " << (work_stop - work_begin) << std::endl; */
   return im;
 
 }
