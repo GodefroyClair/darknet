@@ -4,7 +4,6 @@
 #include "stdlib.h"
 #include "opencv2/opencv.hpp"
 #include "image.h"
-
 // OPENCV4 MEMO
 /* Convention: Mat.rows = image height, Mat.cols = image width. */
 /* Conversion IPlImage Mat */
@@ -30,6 +29,9 @@ static uint64_t getTickCountMs()
 // new implementation without iplImage
 Mat image_to_mat(image im)
 {
+    std::cout << "image_to_mat"<< std::endl;
+    //Get initial time in milisecondsint64
+    uint64_t work_begin = getTickCountMs();
     image copy = copy_image(im);
     constrain_image(copy);
     if(im.c == 3) rgbgr_image(copy);
@@ -40,21 +42,23 @@ Mat image_to_mat(image im)
     Mat m =  Mat(im.h, im.w, CV_8UC(im.c));
     for(y = 0; y < im.h; ++y){
         for(x = 0; x < im.w; ++x){
-            for(c= 0; c < im.c; ++c){
-                float val = im.data[c*im.h*im.w + y*im.w + x];
-                m.at<Vec<uchar, 3>>(y, x)[2-c] = (unsigned char)(val * 255);
+            for(c = 0; c < im.c; ++c){
+                m.at<Vec<uchar, 3>>(y, x)[2-c] = (unsigned char)(im.data[c*im.h*im.w + y*im.w + x] * 255);
                 /* if(y==0 && x == 0 && c == 0) */
                 /*     std::cout << "exemple of vec from image: " << m.at<Vec<uchar, 3>>(x, y) << std::endl; */
             }
         }
     }
+
+    uint64_t work_stop = getTickCountMs();
+    std::cout << "time elapsed in image_to_mat: " << (work_stop - work_begin) << std::endl;
     return m;
 }
 
 // new implementation without iplImage
-image mat_to_image(Mat m){
-  //Get initial time in milisecondsint64 
-  uint64_t work_begin = getTickCountMs(); 
+image mat_to_image2(Mat m){
+  //Get initial time in milisecondsint64
+  uint64_t work_begin = getTickCountMs();
   Size sz = m.size();
   int w = sz.width;
   int h = sz.height;
@@ -73,14 +77,56 @@ image mat_to_image(Mat m){
               /* if(j==0 && k == 0 && i == 0) */
               /*   std::cout << "exemple of vec: " << m.at<Vec<uchar, 3>>(i, j) << std::endl; */
               im.data[k*w*h + i*w + j] = m.at<Vec<uchar, 3>>(i,j)[k] / 255.;
-              /* char * tmp = m.at<Vec<uchar, 3>>(i,j) / 255.; */
           }
       }
   }
 
   rgbgr_image(im);
-  uint64_t work_stop = getTickCountMs(); 
+  uint64_t work_stop = getTickCountMs();
   std::cout << "time elapsed in mat_to_image: " << (work_stop - work_begin) << std::endl;
+  return im;
+
+}
+
+// new *fast* implementation without iplImage
+image mat_to_image(Mat& m){
+
+  //Get initial time in milisecondsint64
+  /* uint64_t work_begin = getTickCountMs(); */
+  int channels = m.channels();
+  int nRows = m.rows;
+  int nCols = m.cols * channels;
+  if(channels != 3)
+    std::cout << "/!\\ number of channels: " << channels << std::endl;
+
+  image im = make_image(m.cols, nRows, channels);
+
+  /* if (m.isContinuous()) { */
+  /*   nCols *= nRows; */
+  /*   nRows = 1; */
+  /*   std::cout << "!!! continuous !!!" << std::endl; */
+  /* } else { */
+  /*   std::cout << "!!! not continuous !!!" << std::endl; */
+  /* } */
+
+
+  int i, j, k;
+  const uchar* p;
+  for(i = 0 ; i < nRows ; i++){
+    p = m.ptr<uchar>(i);
+    for(j = 0 ; j < nCols ; j++){
+      /* formulae: j = channels * curCol + curChnl; */
+      int curCol = j / channels;
+      int curRow = i;
+      int curChnl = j % channels;
+      im.data[curCol + curRow * (nCols/channels) + curChnl * (nCols/channels) * nRows ] = p[j] / 255.;
+      /* im.data[k * w * h + i * w + j] = p[j] / 255.; */
+    }
+  }
+
+  rgbgr_image(im);
+  /* uint64_t work_stop = getTickCountMs(); */
+  /* std::cout << "time elapsed in mat_to_image: " << (work_stop - work_begin) << std::endl; */
   return im;
 
 }
