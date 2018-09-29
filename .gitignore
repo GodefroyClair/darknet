@@ -26,3 +26,5 @@ Icon?
 Thumbs.db
 *.swp
 archives/
+*.so
+*.a
