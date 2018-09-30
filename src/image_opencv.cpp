@@ -24,8 +24,40 @@ static uint64_t getTickCountMs()
     return (uint64_t)(ts.tv_nsec / 1000000) + ((uint64_t)ts.tv_sec * 1000ull);
 }
 
-// new implementation without iplImage
+// new (fast?) implementation without iplImage
 Mat image_to_mat(image im)
+{
+    //Get initial time in milisecondsint64
+    uint64_t work_begin = getTickCountMs();
+    image copy = copy_image(im);
+    constrain_image(copy);
+    if(im.c == 3) rgbgr_image(copy);
+
+    /* IplImage *ipl = image_to_ipl(copy); */
+    int x,y,c;
+    // rows, cols, type
+    Mat m =  Mat(im.h, im.w, CV_8UC(im.c));
+    /* uchar* p; */
+    for(y = 0; y < im.h; ++y){
+        /* p = m.ptr<uchar>(y); */
+        int row = y * im.w;
+        int length = im.h * im.w;
+        for(x = 0; x < im.w; ++x){
+          /* p = p+x; */
+            for(c = 0; c < im.c; ++c){
+              /* p[x][c] = (unsigned char)(im.data[c * length] * 255); */
+              m.at<Vec<uchar, 3>>(y, x)[2-c] = (unsigned char)(im.data[c*length + row + x] * 255);
+            }
+        }
+    }
+
+    uint64_t work_stop = getTickCountMs();
+    std::cout << "time elapsed in image_to_mat: " << (work_stop - work_begin) << std::endl;
+    return m;
+}
+
+// new implementation without iplImage
+Mat image_to_mat2(image im)
 {
     //Get initial time in milisecondsint64
     uint64_t work_begin = getTickCountMs();
@@ -41,8 +73,6 @@ Mat image_to_mat(image im)
         for(x = 0; x < im.w; ++x){
             for(c = 0; c < im.c; ++c){
                 m.at<Vec<uchar, 3>>(y, x)[2-c] = (unsigned char)(im.data[c*im.h*im.w + y*im.w + x] * 255);
-                /* if(y==0 && x == 0 && c == 0) */
-                /*     std::cout << "exemple of vec from image: " << m.at<Vec<uchar, 3>>(x, y) << std::endl; */
             }
         }
     }
@@ -52,7 +82,7 @@ Mat image_to_mat(image im)
     return m;
 }
 
-// new *fast* implementation without iplImage
+// new *fast?* implementation without iplImage
 image mat_to_image(Mat& m){
 
   //Get initial time in milisecondsint64
@@ -69,28 +99,39 @@ image mat_to_image(Mat& m){
 
   if (m.isContinuous()) {
     nMatCols *= nRows;
+    int nColsChnls = channels * nCols;
     nMatRows = 1;
-  }
-
-
-  int i, j;
-  const uchar* p;
-  // i: current row
-  for(i = 0 ; i < nMatRows ; i++){
-    p = m.ptr<uchar>(i);
-    // j: current column
-    for(j = 0 ; j < nMatCols ; j++){
-      /* formulae: j = channels * curCol + curChnl; */
-      if (m.isContinuous()) {
-        /* im.data[j / channels + (j % (channels + nRows)) * nCols + (j % channels) * nCols ] = p[j] / 255.; */
-        int curChnl = j % channels;
-        int curCol = (j / channels) % nCols;
-        int curRow = j / (channels * nCols);
-        im.data[curCol + curRow * nCols + curChnl * (nCols * nRows)] = p[j] / 255.;
-      } else {
-        im.data[j / channels + i * nCols + (j % channels) * nCols * nRows ] = p[j] / 255.;
+    int i, j;
+    const uchar* p;
+    // i: current row
+    for(i = 0 ; i < nMatRows ; ++i){
+      p = m.ptr<uchar>(i);
+      // j: current column
+      for(j = 0 ; j < nMatCols ; ++j){
+        /* int curChnl = j % channels; */
+        /* int curRow = j / (nColsChnls); */
+        /* int curCol = (j / channels) % nCols; */
+        /* im.data[curCol + nCols * (curRow + curChnl * nRows)] = p[j] / 255.; */
+        im.data[j / channels % nCols + nCols * (j / nColsChnls + j % channels * nRows)] = p[j] / 255.;
       }
     }
+  } else {
+    int i, j;
+    const uchar* p;
+    // i: current row
+    for(i = 0 ; i < nMatRows ; ++i){
+      p = m.ptr<uchar>(i);
+      // j: current column
+      for(j = 0 ; j < nMatCols ; ++j){
+        /* formulae: j = channels * curCol + curChnl; */
+        /* int curChnl = j % channels; */
+        /* int curRow = i; */
+        /* int curCol = j / channels; */
+        /* im.data[curCol + nCols * (curRow + curChnl * nRows)] = p[j] / 255.; */
+        im.data[j / channels + nCols * (i + (j % channels) * nRows)] = p[j] / 255.;
+      }
+    }
+
   }
 
   rgbgr_image(im);
