@@ -3,6 +3,11 @@
 #include "stdio.h"
 #include "stdlib.h"
 #include "opencv2/opencv.hpp"
+
+/* #include "opencv2/highgui/highgui.h" */
+/* #include "opencv2/imgproc/imgproc.h" */
+/* #include "opencv2/videoio/videoio.h" */
+
 #include "image.h"
 // OPENCV4 MEMO
 /* Convention: Mat.rows = image height, Mat.cols = image width. */
@@ -12,6 +17,8 @@
 /* Mat *disp = Mat(cvSize(im.w, im.h), CV_8U(im.c)); */
 
 using namespace cv;
+
+
 
 // toolbox
 // Returns the number of ticks since an undefined time (usually system startup).
@@ -28,7 +35,8 @@ static uint64_t getTickCountMs()
 Mat image_to_mat(image im)
 {
     //Get initial time in milisecondsint64
-    uint64_t work_begin = getTickCountMs();
+    /* uint64_t work_begin = getTickCountMs(); */
+
     image copy = copy_image(im);
     constrain_image(copy);
     if(im.c == 3) rgbgr_image(copy);
@@ -44,15 +52,16 @@ Mat image_to_mat(image im)
         int length = im.h * im.w;
         for(x = 0; x < im.w; ++x){
           /* p = p+x; */
-            for(c = 0; c < im.c; ++c){
-              /* p[x][c] = (unsigned char)(im.data[c * length] * 255); */
-              m.at<Vec<uchar, 3>>(y, x)[2-c] = (unsigned char)(im.data[c*length + row + x] * 255);
-            }
+          for(c = 0; c < im.c; ++c){
+            /* p[x][c] = (unsigned char)(im.data[c * length] * 255); */
+            /* m.at<Vec<uchar, 1>>(y, x + c) = (unsigned char)(im.data[c*length + row + x] * 255); */
+            m.at<Vec<uchar, 3>>(y, x)[2-c] = (unsigned char)(im.data[c*length + row + x] * 255);
+          }
         }
     }
 
-    uint64_t work_stop = getTickCountMs();
-    std::cout << "time elapsed in image_to_mat: " << (work_stop - work_begin) << std::endl;
+    /* uint64_t work_stop = getTickCountMs(); */
+    /* std::cout << "time elapsed in image_to_mat: " << (work_stop - work_begin) << std::endl; */
     return m;
 }
 
@@ -86,7 +95,7 @@ Mat image_to_mat2(image im)
 image mat_to_image(Mat& m){
 
   //Get initial time in milisecondsint64
-  uint64_t work_begin = getTickCountMs();
+  /* uint64_t work_begin = getTickCountMs(); */
 
   int channels = m.channels();
   int nRows = m.rows;
@@ -135,8 +144,8 @@ image mat_to_image(Mat& m){
   }
 
   rgbgr_image(im);
-  uint64_t work_stop = getTickCountMs();
-  std::cout << "time elapsed in mat_to_image: " << (work_stop - work_begin) << std::endl;
+  /* uint64_t work_stop = getTickCountMs(); */
+  /* std::cout << "time elapsed in mat_to_image: " << (work_stop - work_begin) << std::endl; */
   return im;
 
 }
@@ -171,7 +180,7 @@ image mat_to_image2(Mat m){
 
 }
 
-void *open_video_stream(const char *f, int c, int w, int h, int fps)
+void * open_video_stream(const char *f, int c, int w, int h, int fps)
 {
     VideoCapture *cap;
     if(f) cap = new VideoCapture(f);
@@ -249,5 +258,53 @@ void make_window(char *name, int w, int h, int fullscreen)
     }
 }
 
+void * init_save_video_cv(void * capP)
+{
+  VideoCapture * capPtr = static_cast<VideoCapture*>(capP);
+  std::string filename = "Output.avi";
+  int mfps = capPtr->get(CAP_PROP_FPS);
+
+  VideoWriter * mVideoWriter;
+  mVideoWriter = new VideoWriter(
+       filename,
+       VideoWriter::fourcc('M','J','P','G'),
+       mfps,
+       Size(
+         capPtr->get(CAP_PROP_FRAME_WIDTH), capPtr->get(CAP_PROP_FRAME_HEIGHT)
+       ),
+       1);
+   return (void *) mVideoWriter;
+}
+
+void save_video_cv(image p, void * mVideoWriter)
+{
+    VideoWriter * mVideoWriterPtr = static_cast<VideoWriter*>(mVideoWriter);
+    image copy = copy_image(p);
+    if(p.c == 3) rgbgr_image(copy);
+    /* int x,y,k; */
+    Mat m = image_to_mat(p);
+
+    /* IplImage *disp = cvCreateImage(cvSize(p.w,p.h), IPL_DEPTH_8U, p.c); */
+    /* int step = disp->widthStep; */
+    /* for(y = 0; y < p.h; ++y){ */
+        /* for(x = 0; x < p.w; ++x){ */
+            /* for(k= 0; k < p.c; ++k){ */
+                /* disp->imageData[y*step + x*p.c + k] = (unsigned char)(get_pixel(copy,x,y,k)*255); */
+            /* } */
+        /* } */
+    /* } */
+    mVideoWriterPtr->write(m);
+    /* cvReleaseImage(&disp); */
+}
+
+void release_video_cv(void * cap, void * mVideoWriter)
+{
+  VideoCapture * capPtr = static_cast<VideoCapture*>(cap);
+  VideoWriter * mVideoWriterPtr = static_cast<VideoWriter*>(mVideoWriter);
+  // When everything done, release the video capture and write object
+  capPtr->release();
+  mVideoWriterPtr->release();
+
+}
 
 #endif

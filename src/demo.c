@@ -13,6 +13,8 @@
 
 #ifdef OPENCV
 
+#define SAVEVIDEO
+
 static char **demo_names;
 static image **demo_alphabet;
 static int demo_classes;
@@ -36,6 +38,10 @@ static int demo_total = 0;
 double demo_time;
 
 detection *get_network_boxes(network *net, int w, int h, float thresh, float hier, int *map, int relative, int *num);
+
+#ifdef SAVEVIDEO
+static void *mVideoWriter;
+#endif
 
 int size_network(network *net)
 {
@@ -218,6 +224,12 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
 
     if(!cap) error("Couldn't connect to webcam.\n");
 
+#ifdef SAVEVIDEO
+    if(cap){
+       mVideoWriter = init_save_video_cv(cap);
+    }
+#endif
+
     buff[0] = get_image_from_stream(cap);
     buff[1] = copy_image(buff[0]);
     buff[2] = copy_image(buff[0]);
@@ -237,18 +249,29 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
         if(pthread_create(&fetch_thread, 0, fetch_in_thread, 0)) error("Thread creation failed");
         if(pthread_create(&detect_thread, 0, detect_in_thread, 0)) error("Thread creation failed");
         if(!prefix){
+#ifdef SAVEVIDEO
+            save_video_cv(buff[(buff_index + 1) % 3], mVideoWriter);
+#endif
             fps = 1./(what_time_is_it_now() - demo_time);
             demo_time = what_time_is_it_now();
             display_in_thread(0);
         }else{
             char name[256];
             sprintf(name, "%s_%08d", prefix, count);
-            save_image(buff[(buff_index + 1)%3], name);
+#ifdef SAVEVIDEO
+            save_video_cv(buff[(buff_index + 1) % 3], mVideoWriter);
+#else
+            save_image(buff[(buff_index + 1) % 3], name);
+#endif
         }
         pthread_join(fetch_thread, 0);
         pthread_join(detect_thread, 0);
         ++count;
     }
+#ifdef SAVEVIDEO
+        release_video_cv(cap, mVideoWriter);
+#endif
+
 }
 
 /*
@@ -310,7 +333,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
 
    int count = 0;
    if(!prefix){
-   cvNamedWindow("Demo", CV_WINDOW_NORMAL); 
+   cvNamedWindow("Demo", CV_WINDOW_NORMAL);
    if(fullscreen){
    cvSetWindowProperty("Demo", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
    } else {
@@ -340,10 +363,13 @@ pthread_join(detect_thread, 0);
 }
 }
 */
+
 #else
+
 void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const char *filename, char **names, int classes, int delay, char *prefix, int avg, float hier, int w, int h, int frames, int fullscreen)
 {
     fprintf(stderr, "Demo needs OpenCV for webcam images.\n");
 }
+
 #endif
 

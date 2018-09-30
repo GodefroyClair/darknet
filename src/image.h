@@ -18,6 +18,9 @@ void *open_video_stream(const char *f, int c, int w, int h, int fps);
 image get_image_from_stream(void *p);
 image load_image_cv(char *filename, int channels);
 int show_image_cv(image im, const char* name, int ms);
+void * init_save_video_cv(void * cap);
+void save_video_cv(image p, void * mVideoWriter);
+void release_video_cv(void * cap, void * mVideoWriter);
 #endif
 
 float get_color(int c, int x, int max);
