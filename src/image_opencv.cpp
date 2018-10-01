@@ -71,9 +71,9 @@ Mat image_to_mat2(image im)
 {
     //Get initial time in milisecondsint64
     uint64_t work_begin = getTickCountMs();
-    image copy = copy_image(im);
-    constrain_image(copy);
-    if(im.c == 3) rgbgr_image(copy);
+    /* image copy = copy_image(im); */
+    /* constrain_image(copy); */
+    /* if(im.c == 3) rgbgr_image(copy); */
 
     /* IplImage *ipl = image_to_ipl(copy); */
     int x,y,c;
@@ -89,6 +89,7 @@ Mat image_to_mat2(image im)
 
     uint64_t work_stop = getTickCountMs();
     std::cout << "time elapsed in image_to_mat: " << (work_stop - work_begin) << std::endl;
+    /* free_image(copy); */
     return m;
 }
 
@@ -210,7 +211,9 @@ image get_image_from_stream(void *p)
       std::cout << "empty" << std::endl;
       return make_empty_image(0,0,0);
     }
-    return mat_to_image(m);
+    image im = mat_to_image(m);
+    m.release();
+    return im;
 }
 
 image load_image_cv(char *filename, int channels)
@@ -234,6 +237,7 @@ image load_image_cv(char *filename, int channels)
         //exit(0);
     }
     image im = mat_to_image(m);
+    m.release();
     return im;
 }
 
