@@ -11,6 +11,7 @@
 
 #define DEMO 1
 
+
 #ifdef OPENCV
 
 #define SAVEVIDEO

@@ -37,9 +37,9 @@ Mat image_to_mat(image im)
     //Get initial time in milisecondsint64
     /* uint64_t work_begin = getTickCountMs(); */
 
-    image copy = copy_image(im);
-    constrain_image(copy);
-    if(im.c == 3) rgbgr_image(copy);
+    /* image copy = copy_image(im); */
+    /* constrain_image(copy); */
+    /* if(im.c == 3) rgbgr_image(copy); */
 
     /* IplImage *ipl = image_to_ipl(copy); */
     int x,y,c;
@@ -62,6 +62,7 @@ Mat image_to_mat(image im)
 
     /* uint64_t work_stop = getTickCountMs(); */
     /* std::cout << "time elapsed in image_to_mat: " << (work_stop - work_begin) << std::endl; */
+    /* free_image(copy); */
     return m;
 }
 
@@ -294,6 +295,8 @@ void save_video_cv(image p, void * mVideoWriter)
         /* } */
     /* } */
     mVideoWriterPtr->write(m);
+    m.release();
+    free_image(copy);
     /* cvReleaseImage(&disp); */
 }
 
